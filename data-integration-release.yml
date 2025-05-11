@@ -1,0 +1,88 @@
+pool:
+  name: 'hqbuild'
+
+trigger: none
+
+variables:
+  buildConfiguration: 'Release'
+  build_pipeline_id: '442'
+
+resources:
+  pipelines:
+    - pipeline: 'Build-Pipeline'
+      source: data-integrations-hub-CI
+      branch: main
+      trigger: true
+      
+jobs:
+  - job: Release
+    displayName: 'Deploy Latest Artifacts'
+    steps:
+      - task: DownloadBuildArtifacts@1
+        displayName: 'Download Artifacts From Build Directory'
+        inputs:
+          buildType: 'specific'
+          project: '2b434b21-7037-433e-9123-1ab75bf2d1c1'
+          pipeline: '$(build_pipeline_id)'
+          buildVersionToDownload: 'latest'
+          downloadType: 'specific'
+          downloadPath: '$(Build.ArtifactStagingDirectory)'
+      - task: ExtractFiles@1
+        displayName: 'Extract-Integrations Admin - Front End'
+        inputs:
+          archiveFilePatterns: '$(Build.ArtifactStagingDirectory)/$(IntegrationsAdmin_Frontend)/*.zip'
+          destinationFolder: '$(System.DefaultWorkingDirectory)/$(IntegrationsAdmin_Frontend)'
+          cleanDestinationFolder: true
+          overwriteExistingFiles: true
+      - task: AzureRmWebAppDeployment@4
+        displayName: 'Deploy-Integrations Admin - Front End'
+        inputs:
+          ConnectionType: 'AzureRM'
+          azureSubscription: '$(dev_azuresubscription)'
+          appType: 'webAppLinux'
+          WebAppName: '$(IntegrationsAdmin_Frontend_Web_App)'
+          enableCustomDeployment: true
+          DeploymentType: 'webDeploy'
+          deployToSlotOrASE: true
+          ResourceGroupName: '$(dev_rgname)'
+          SlotName: 'production'
+          packageForLinux: '$(System.DefaultWorkingDirectory)/$(IntegrationsAdmin_Frontend)'
+      - task: ExtractFiles@1
+        displayName: 'Extract-API Integrations Admin'
+        inputs:
+          archiveFilePatterns: '$(Build.ArtifactStagingDirectory)/$(IntegrationsAdmin_Backend_API_Build)/*.zip'
+          destinationFolder: '$(System.DefaultWorkingDirectory)/$(IntegrationsAdmin_Backend_API_Build)'
+          cleanDestinationFolder: true
+          overwriteExistingFiles: true
+      - task: AzureRmWebAppDeployment@4
+        displayName: 'Deploy - FA Integrations Admin'
+        inputs:
+          ConnectionType: 'AzureRM'
+          azureSubscription: '$(dev_azuresubscription)'
+          appType: 'webAppLinux'
+          WebAppName: '$(IntegrationsAdmin_Backend_Web_App)'
+          enableCustomDeployment: true
+          DeploymentType: 'webDeploy'
+          deployToSlotOrASE: true
+          ResourceGroupName: '$(dev_rgname)'
+          SlotName: 'production'
+          packageForLinux: '$(System.DefaultWorkingDirectory)/$(IntegrationsAdmin_Backend_API_Build)'
+      - task: ExtractFiles@1
+        displayName: 'Extract - FA Integrations Admin'
+        inputs:
+          archiveFilePatterns: '$(Build.ArtifactStagingDirectory)/$(IntegrationsAdmin_Backend)/*.zip'
+          destinationFolder: '$(System.DefaultWorkingDirectory)/$(IntegrationsAdmin_Backend)'
+          cleanDestinationFolder: true
+          overwriteExistingFiles: true
+      - task: AzureFunctionApp@2
+        displayName: 'Deploy-FA Integrations Admin'
+        inputs:
+          connectedServiceNameARM: '$(dev_azuresubscription)'
+          appType: 'functionAppLinux'
+          appName: '$(IntegrationsAdmin_Function_App)'
+          deployToSlotOrASE: true
+          resourceGroupName: '$(dev_rgname)'
+          slotName: 'production'
+          package: '$(Build.ArtifactStagingDirectory)/$(IntegrationsAdmin_Backend)/*.zip'
+          runtimeStack: 'DOTNET|8.0'
+          deploymentMethod: 'auto'
