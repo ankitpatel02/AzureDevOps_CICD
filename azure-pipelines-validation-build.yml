@@ -1,0 +1,61 @@
+# Starter pipeline
+trigger:
+- main
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  buildConfiguration: 'Release'
+
+steps:
+- task: AdvancedSecurity-Codeql-Init@1
+  inputs:
+    languages: "csharp"
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
+    feedsToUse: 'select'
+    vstsFeed: 'd1465070-9153-45fd-8b5a-fd8805daa190'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration $(BuildConfiguration)'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'test'
+    projects: '**/*Tests.csproj'
+    arguments: '--configuration $(BuildConfiguration)'
+
+- task: AdvancedSecurity-Dependency-Scanning@1
+
+- task: AdvancedSecurity-Codeql-Autobuild@1
+
+- task: AdvancedSecurity-Codeql-Analyze@1
+
+# - powershell: |
+#     ### Write your PowerShell commands here ###
+   
+#     echo "Downloading Mend CLI"
+#     Invoke-WebRequest -Uri "https://downloads.mend.io/cli/windows_amd64/mend.exe" -OutFile "mend.exe"
+   
+#     echo "Start Mend dependencies (SCA) scan"
+#     ./mend.exe deps -u -s *//$(MendProductName)//$(Build.Repository.Name)_$(Build.SourceBranchName)
+#     ### Run Mend code (SAST) scan ###
+#         echo "Start Mend code (SAST) scan"
+#     ./mend.exe sast --cs 2 --name="//$(MendProductName)//$(Build.Repository.Name)_$(Build.SourceBranchName)" --app $(MendProductName)_$(Build.Repository.Name)
+#     errorActionPreference: continue
+#     continueOnError: true
+#     env:
+#         MEND_EMAIL: $(mendemailnew)
+#         MEND_SAST_API_TOKEN: $(mendsastapitoken)
+#         MEND_SAST_ORGANIZATION: $(mendsastorganization)
+#         MEND_SAST_SERVER_URL: $(mendsastserverurl)
+#         MEND_URL: $(mendurl)
+#         MEND_USER_KEY: $(menduserkeynew)
+#     displayName: 'Running SAST Scan'

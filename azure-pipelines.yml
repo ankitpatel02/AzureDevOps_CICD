@@ -1,0 +1,59 @@
+# Starter pipeline
+
+trigger:
+  - main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+steps:
+- task: DotNetCoreCLI@2
+  displayName: "Restore Nuget Packages"
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
+    feedsToUse: 'select'
+    vstsFeed: 'd1465070-9153-45fd-8b5a-fd8805daa190'
+- task: DotNetCoreCLI@2
+  displayName: "Build Project"
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration $(buildConfiguration)'
+- task: DotNetCoreCLI@2
+  displayName: "Test Project"
+  inputs:
+    command: 'test'
+    projects: '**/*Tests.csproj'
+    arguments: '--configuration $(buildConfiguration)'
+- task: AdvancedSecurity-Codeql-Init@1
+  displayName: "Codeql-AdvancedSecurity"
+  inputs:
+    languages: "csharp, javascript"
+    querysuite: 'code-scanning'
+- task: AdvancedSecurity-Dependency-Scanning@1
+  displayName: "Dependency Scanning - AdvancedSecurity"
+- task: AdvancedSecurity-Codeql-Autobuild@1
+  displayName: "Codeql Autobuild - AdvancedSecurity"
+- task: AdvancedSecurity-Codeql-Analyze@1
+  displayName: "Codeql Analyze - AdvancedSecurity"
+- powershell: |
+    echo "Removing current Mend CLI"
+    Remove-Item -Path ".\mend.exe" -Force -ErrorAction SilentlyContinue
+    echo "Downloading Mend CLI"
+    Invoke-WebRequest -Uri "https://downloads.mend.io/cli/windows_amd64/mend.exe" -OutFile "mend.exe"
+    echo "Run Mend dependencies scan"
+    ./mend.exe dep -u -s "*//$(System.TeamProject)//$(MendProductName)_$(Build.Repository.Name)_$(Build.SourceBranchName)"
+    echo "Start Mend (SAST) Scan"
+    ./mend.exe code --name=$(MendProductName)_$(Build.SourceBranchName)_$(Build.BuildNumber) -s "*//$(System.TeamProject)//$(MendProductName)_$(Build.Repository.Name)_$(Build.SourceBranchName)"
+  displayName: "Mend Scan"
+  errorActionPreference: continue
+  continueOnError: true
+  env:
+    MEND_EMAIL: $(mendemail)
+    MEND_ORGANIZATION: $(mendorganization)
+    MEND_URL: $(mendurl)
+    MEND_USER_KEY: $(menduserkey)
